@@ -3,6 +3,7 @@ from pathlib import Path
 from PIL import Image
 import open_clip
 import torch
+import csv
 
 # Load the pretrained OpenCLIP model and its image preprocessing steps
 model, _, preprocess = open_clip.create_model_and_transforms(
@@ -93,3 +94,66 @@ for rank, index in enumerate(ranked_indices, start=1):
     score = similarities[index].item()
 
     print(f"{rank}. {path.name}: {score:.3f}")
+
+# -------------------------------------------------
+# Load the human relevance labels
+labels = {}
+
+with open("data/labels.csv", "r") as file:
+    reader = csv.DictReader(file)
+
+    for row in reader:
+        labels[row["filename"]] = int(row["relevant"])
+
+print(labels)
+
+# -------------------------------------------------
+# Calculate precision at a chosen number of search results
+def calculate_precision(k):
+    top_indices = ranked_indices[:k]
+
+    relevant_count = 0
+
+    for index in top_indices:
+        filename = candidate_paths[index].name
+
+        if labels[filename] == 1:
+            relevant_count += 1
+
+    precision = relevant_count / k
+
+    return precision
+
+
+precision_at_5 = calculate_precision(5)
+precision_at_10 = calculate_precision(10)
+
+print("Precision@5:", precision_at_5)
+print("Precision@10:", precision_at_10)
+
+# -------------------------------------------------
+# Calculate recall at a chosen number of search results
+def calculate_recall(k):
+    top_indices = ranked_indices[:k]
+
+    relevant_found = 0
+
+    for index in top_indices:
+        filename = candidate_paths[index].name
+
+        if labels[filename] == 1:
+            relevant_found += 1
+
+    total_relevant = sum(labels.values())
+
+    recall = relevant_found / total_relevant
+
+    return recall
+
+
+recall_at_10 = calculate_recall(10)
+
+print("Recall@10:", recall_at_10)
+# -------------------------------------------------
+
+
